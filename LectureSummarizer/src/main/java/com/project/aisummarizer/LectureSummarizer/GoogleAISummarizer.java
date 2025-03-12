@@ -1,22 +1,14 @@
 package com.project.aisummarizer.LectureSummarizer;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.util.Properties;
-
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class GoogleAISummarizer {
-
     private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
     private static String API_KEY = "";
 
@@ -32,7 +24,7 @@ public class GoogleAISummarizer {
         Properties properties = new Properties();
         File file = new File(".env");
         if (!file.exists()) {
-            throw new IOException(".env file not found. Make sure to create it and add your API key.");
+            throw new IOException(".env file not found.");
         }
         try (InputStream input = new FileInputStream(file)) {
             properties.load(input);
@@ -55,7 +47,7 @@ public class GoogleAISummarizer {
             JSONObject requestBody = new JSONObject();
             JSONArray contents = new JSONArray();
             JSONObject part = new JSONObject();
-            part.put("text", "Summarize this text in 60 words or less:\n\n" + inputText);
+            part.put("text", "Summarize this text in 60 words or less:\n\n" + inputText + "end the summary with the word 'Eureka' in the end");
             JSONObject content = new JSONObject();
             content.put("parts", new JSONArray().put(part));
             contents.put(content);
@@ -66,36 +58,28 @@ public class GoogleAISummarizer {
                 os.write(input, 0, input.length);
             }
 
-            int responseCode = conn.getResponseCode();
-            if (responseCode >= 200 && responseCode < 300) {
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "utf-8"))) {
-                    StringBuilder response = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        response.append(line);
-                    }
-
-                    JSONObject jsonResponse = new JSONObject(response.toString());
-                    JSONArray candidates = jsonResponse.optJSONArray("candidates");
-
-                    if (candidates != null && candidates.length() > 0) {
-                        JSONObject candidate = candidates.getJSONObject(0);
-                        JSONObject contentResponse = candidate.optJSONObject("content");
-                        JSONArray parts = contentResponse.optJSONArray("parts");
-
-                        if (parts != null && parts.length() > 0) {
-                            return parts.getJSONObject(0).getString("text");
-                        }
-                    }
-                    return "Error: No summary generated.";
-                }
-            } else {
-                return "Error: API request failed with status " + responseCode;
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "utf-8"));
+            StringBuilder response = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
             }
 
+            JSONObject jsonResponse = new JSONObject(response.toString());
+            JSONArray candidates = jsonResponse.optJSONArray("candidates");
+
+            if (candidates != null && candidates.length() > 0) {
+                JSONObject candidate = candidates.getJSONObject(0);
+                JSONObject contentResponse = candidate.optJSONObject("content");
+                JSONArray parts = contentResponse.optJSONArray("parts");
+
+                if (parts != null && parts.length() > 0) {
+                    return parts.getJSONObject(0).getString("text");
+                }
+            }
+            return "Error: No summary generated.";
         } catch (Exception e) {
             return "Error generating summary: " + e.getMessage();
         }
     }
 }
-
