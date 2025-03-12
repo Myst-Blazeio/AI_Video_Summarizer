@@ -1,4 +1,4 @@
-# Created at 2025-03-11T00:34:55.056
+# Created at 2025-03-12T16:40:30.986
 Boot Manifest-JAR contains absolute paths in classpath 'D:\Projects\AI_Summarizer\LectureSummarizer\target\test-classes'
 Hint: <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
 'other' has different root

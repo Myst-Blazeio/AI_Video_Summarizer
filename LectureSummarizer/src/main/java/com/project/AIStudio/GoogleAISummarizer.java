@@ -1,45 +1,55 @@
 package com.project.AIStudio;
 
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
-import java.util.Scanner;
-
+import java.util.Properties;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
-
 public class GoogleAISummarizer {
-
     private static final String API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent";
-    private static final String API_KEY = "AIzaSyDnKJooQulG14jluMBTg0CeO4OBvZrz5tU"; // REMEMBER TO REPLACE
+    private static String API_KEY = "";
 
-    public static String generateSummary(String inputText) {
+    static {
+        try {
+            API_KEY = loadApiKey();
+        } catch (IOException e) {
+            System.err.println("⚠️ Failed to load API key: " + e.getMessage());
+        }
+    }
+
+    private static String loadApiKey() throws IOException {
+        Properties properties = new Properties();
+        File file = new File(".env");
+        if (!file.exists()) {
+            throw new IOException(".env file not found.");
+        }
+        try (InputStream input = new FileInputStream(file)) {
+            properties.load(input);
+            return properties.getProperty("GOOGLE_API_KEY");
+        }
+    }
+
+    public String generateSummary(String inputText) {
+        if (API_KEY.isEmpty()) {
+            return "Error: API Key is missing!";
+        }
         try {
             String apiUrlWithKey = API_URL + "?key=" + API_KEY;
             URL url = URI.create(apiUrlWithKey).toURL();
-
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setDoOutput(true);
 
             JSONObject requestBody = new JSONObject();
-            org.json.JSONArray contents = new org.json.JSONArray();
+            JSONArray contents = new JSONArray();
             JSONObject part = new JSONObject();
-
-           // 🌟 Highlighted Prompt Area: Summarize in 60 words or less 🌟
-            String prompt = "Summarize this text in 60 words or less:\n\n" + inputText;
-            part.put("text", prompt);
-            // 🌟 End Highlighted Area 🌟
-
+            part.put("text", "Summarize this text in 60 words or less:\n\n" + inputText + "end the summary with the word 'Eureka' in the end");
             JSONObject content = new JSONObject();
-            content.put("parts", new org.json.JSONArray().put(part));
+            content.put("parts", new JSONArray().put(part));
             contents.put(content);
             requestBody.put("contents", contents);
 
@@ -48,67 +58,28 @@ public class GoogleAISummarizer {
                 os.write(input, 0, input.length);
             }
 
-            int responseCode = conn.getResponseCode();
-            if (responseCode >= 200 && responseCode < 300) {
-                try (Scanner scanner = new Scanner(conn.getInputStream(), "utf-8")) {
-                    String response = scanner.useDelimiter("\\A").next();
-                    JSONObject jsonResponse = new JSONObject(response);
-
-                    if (!jsonResponse.has("candidates")) {
-                        return "Error: 'candidates' key missing in response.";
-                    }
-
-                    org.json.JSONArray candidates = jsonResponse.getJSONArray("candidates");
-                    if (candidates.length() == 0) {
-                        return "Error: No summary generated.";
-                    }
-
-                    JSONObject candidate = candidates.getJSONObject(0);
-                    if (!candidate.has("content")) {
-                        return "Error: 'content' key missing in candidate.";
-                    }
-                    JSONObject contentResponse = candidate.getJSONObject("content");
-                    if (!contentResponse.has("parts")) {
-                        return "Error: 'parts' key missing in content.";
-                    }
-                    org.json.JSONArray parts = contentResponse.getJSONArray("parts");
-                    if (parts.length() == 0) {
-                        return "Error: No parts in content.";
-                    }
-
-                    return parts.getJSONObject(0).getString("text");
-                }
-            } else {
-                String errorMessage = getErrorStreamAsString(conn.getErrorStream());
-                return "Error generating summary. HTTP Status Code: " + responseCode + ". Error Message: " + errorMessage;
-            }
-
-        } catch (Exception e) {
-            return "Error generating summary: " + e.getMessage();  // Simplified error message
-        }
-    }
-
-    private static String getErrorStreamAsString(InputStream errorStream) throws IOException {
-        if (errorStream == null) {
-            return "No error message provided.";
-        }
-        StringBuilder sb = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(errorStream, "utf-8"))) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "utf-8"));
+            StringBuilder response = new StringBuilder();
             String line;
             while ((line = reader.readLine()) != null) {
-                sb.append(line).append("\n");
+                response.append(line);
             }
+
+            JSONObject jsonResponse = new JSONObject(response.toString());
+            JSONArray candidates = jsonResponse.optJSONArray("candidates");
+
+            if (candidates != null && candidates.length() > 0) {
+                JSONObject candidate = candidates.getJSONObject(0);
+                JSONObject contentResponse = candidate.optJSONObject("content");
+                JSONArray parts = contentResponse.optJSONArray("parts");
+
+                if (parts != null && parts.length() > 0) {
+                    return parts.getJSONObject(0).getString("text");
+                }
+            }
+            return "Error: No summary generated.";
+        } catch (Exception e) {
+            return "Error generating summary: " + e.getMessage();
         }
-        return sb.toString();
-    }
-
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Enter the text to summarize:");
-        String inputText = scanner.nextLine();
-
-        String summary = generateSummary(inputText);
-        System.out.println("\nAI Summary: " + summary);
-        scanner.close();
     }
 }
