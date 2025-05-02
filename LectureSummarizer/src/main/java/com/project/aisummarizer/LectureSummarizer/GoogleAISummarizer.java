@@ -47,7 +47,7 @@ public class GoogleAISummarizer {
             JSONObject requestBody = new JSONObject();
             JSONArray contents = new JSONArray();
             JSONObject part = new JSONObject();
-            part.put("text", "Summarize this text in 60 words or less:\n\n" + inputText + "end the summary with the word 'Eureka' in the end");
+            part.put("text","Summarize this text in 60 words or less:\n\n" + inputText + "end the summary with the word 'Eureka' in the end");
             JSONObject content = new JSONObject();
             content.put("parts", new JSONArray().put(part));
             contents.put(content);
